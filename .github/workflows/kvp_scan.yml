@@ -1,16 +1,8 @@
-# .github/workflows/kvp_scan.yml
-#
-# Dit bestand zorgt dat GitHub elke dag automatisch de scan uitvoert.
-# Je hoeft hier niets aan te veranderen.
-
-name: KVP × Funda Dagelijkse Scan
+name: KVP x Funda Dagelijkse Scan
 
 on:
-  # Elke dag om 07:00 Nederlandse tijd (05:00 UTC in winter, 06:00 UTC in zomer)
   schedule:
     - cron: '0 5 * * *'
-
-  # Knop om handmatig te starten (handig om even te testen)
   workflow_dispatch:
 
 jobs:
@@ -19,25 +11,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Code ophalen uit je repository
       - name: Bestanden ophalen
         uses: actions/checkout@v4
 
-      # 2. Python installeren
       - name: Python installeren
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 3. Benodigde packages installeren
       - name: Packages installeren
         run: pip install -r requirements.txt
 
-      # 4. De scan uitvoeren
-      - name: KVP × Funda scan uitvoeren
+      - name: KVP x Funda scan uitvoeren
+        env:
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
         run: python kvp_scanner.py
 
-      # 5. Resultaten opslaan zodat je ze kunt downloaden
       - name: Resultaten opslaan als download
         uses: actions/upload-artifact@v4
         with:
@@ -48,35 +39,19 @@ jobs:
             output/scanner.log
           retention-days: 30
 
-      # 6. Samenvatting tonen in GitHub zelf
       - name: Samenvatting weergeven
         if: always()
         run: |
-          echo "## 🏠 KVP × Funda Scan Resultaten" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## KVP x Funda Scan Resultaten" >> $GITHUB_STEP_SUMMARY
           if [ -f output/resultaten.json ]; then
             MATCHES=$(python3 -c "import json; d=json.load(open('output/resultaten.json')); print(len(d.get('matches', [])))")
             TEKOOP=$(python3 -c "import json; d=json.load(open('output/resultaten.json')); print(sum(1 for m in d.get('matches',[]) if m.get('status')=='Te koop'))")
             STRATEN=$(python3 -c "import json; d=json.load(open('output/resultaten.json')); print(d.get('straten_gescand', '?'))")
             echo "| Statistiek | Waarde |" >> $GITHUB_STEP_SUMMARY
             echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-            echo "| ✅ Totaal matches | **$MATCHES** |" >> $GITHUB_STEP_SUMMARY
-            echo "| 🟢 Waarvan 'Te koop' | **$TEKOOP** |" >> $GITHUB_STEP_SUMMARY
-            echo "| 🔍 Straten gescand | $STRATEN |" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Gevonden panden" >> $GITHUB_STEP_SUMMARY
-            python3 -c "
-          import json
-          d = json.load(open('output/resultaten.json'))
-          matches = d.get('matches', [])
-          if matches:
-              print('| Adres | Prijs | Status | Link |')
-              print('|---|---|---|---|')
-              for m in matches:
-                  print(f\"| {m.get('volledig_adres','')} | {m.get('prijs','-')} | {m.get('status','')} | [Bekijken]({m.get('funda_url','')}) |\")
-          else:
-              print('_Geen matches gevonden vandaag._')
-          " >> $GITHUB_STEP_SUMMARY
+            echo "| Totaal matches | $MATCHES |" >> $GITHUB_STEP_SUMMARY
+            echo "| Waarvan Te koop | $TEKOOP |" >> $GITHUB_STEP_SUMMARY
+            echo "| Straten gescand | $STRATEN |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Geen resultatenbestand gevonden." >> $GITHUB_STEP_SUMMARY
+            echo "Geen resultatenbestand gevonden." >> $GITHUB_STEP_SUMMARY
           fi
